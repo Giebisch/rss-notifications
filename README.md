@@ -18,6 +18,10 @@ A small macOS menu bar app that watches your RSS and Atom feeds and posts a nati
 
 No feed reader, no unread counters, no account. Just a notification when something new is published.
 
+<p align="center">
+  <img src="docs/demo.gif" alt="RSS Notifications demo">
+</p>
+
 ## Features
 
 - **Native notifications** through Apple's UserNotifications framework, grouped per feed in Notification Center. Clicking one opens the item's link in your default browser.
