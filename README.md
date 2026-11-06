@@ -26,14 +26,24 @@ No feed reader, no unread counters, no account. Just a notification when somethi
 ## Installation
 
 ```sh
-git clone https://github.com/Giebisch/rss-notifications.git
-cd rss-notifications
-make install
+go install github.com/Giebisch/rss-notifications@latest
+rss-notifications install
 ```
 
-This builds `RSS Notifications.app`, signs it ad hoc and copies it to `/Applications`. Start it from there; on first launch macOS asks for permission to show notifications.
+The second command creates `RSS Notifications.app` in `~/Applications`, signs it ad hoc and starts it. On first launch macOS asks for permission to show notifications. If `rss-notifications` is not found, add `$(go env GOPATH)/bin` to your `PATH`.
 
-To try it without installing, run `make run`. It builds into `build/` and launches the app from there.
+To update, run both commands again, then quit the app from the menu bar and open it again.
+
+From a clone of this repository, `make install` does the same.
+
+### Uninstall
+
+Turn off **Launch at Login** if you enabled it, quit the app, then remove the app, its settings and the binary:
+
+```sh
+rm -rf ~/Applications/"RSS Notifications.app" ~/Library/Application\ Support/"RSS Notifications"
+rm "$(go env GOPATH)/bin/rss-notifications"
+```
 
 ## Usage
 
@@ -96,7 +106,7 @@ The app is written in Go. About 150 lines of Objective-C, compiled through cgo, 
 | Add and rename dialogs | `NSAlert` (`darwin.m`) |
 | Error dialogs | [zenity](https://github.com/ncruces/zenity) |
 
-macOS only lets apps that run from a signed `.app` bundle use `UNUserNotificationCenter`. `go run` therefore doesn't work: build with `make build`, which creates the bundle and signs it ad hoc. No Apple developer account is needed.
+macOS only lets apps that run from a signed `.app` bundle use `UNUserNotificationCenter`. The plain binary therefore refuses to run on its own: `rss-notifications install` (or `make build` during development) wraps it in a bundle and signs it ad hoc. No Apple developer account is needed.
 
 ## Development
 
@@ -104,6 +114,7 @@ macOS only lets apps that run from a signed `.app` bundle use `UNUserNotificatio
 make test    # go vet and unit tests
 make build   # build and sign build/RSS Notifications.app
 make run     # build, quit any running instance, and launch
+make install # install to ~/Applications
 make clean
 ```
 

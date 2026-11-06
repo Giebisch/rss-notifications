@@ -14,9 +14,9 @@ run: build
 	pkill -x $(BIN) || true
 	open "$(APP)"
 
-install: build
-	rm -rf "/Applications/RSS Notifications.app"
-	cp -R "$(APP)" /Applications/
+install:
+	go build -o build/$(BIN) .
+	build/$(BIN) install
 
 test:
 	go vet ./...

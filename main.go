@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -37,6 +39,22 @@ type app struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "install" {
+		app, err := install()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("Installed %s\nIf the app was already running, quit it from the menu bar to use the new version.\n", app)
+		if err := exec.Command("open", app).Run(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	if !inAppBundle() {
+		fmt.Fprintln(os.Stderr, "rss-notifications only works as a macOS app bundle.\nRun 'rss-notifications install' to install it to ~/Applications.")
+		os.Exit(2)
+	}
+
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatal(err)
