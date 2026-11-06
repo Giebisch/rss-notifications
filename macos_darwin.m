@@ -7,6 +7,25 @@ static NSString *str(const char *s) {
 	return [NSString stringWithUTF8String:s] ?: @"";
 }
 
+// AppKit UI must run on the main thread. Calls from Go arrive on arbitrary threads,
+// except at startup, where main() still runs on the main thread.
+static void runOnMain(dispatch_block_t block) {
+	if ([NSThread isMainThread]) {
+		block();
+	} else {
+		dispatch_sync(dispatch_get_main_queue(), block);
+	}
+}
+
+// Menu bar apps are never active on their own, so alerts would open behind other windows.
+static void activate(void) {
+	if (@available(macOS 14, *)) {
+		[NSApp activate];
+	} else {
+		[NSApp activateIgnoringOtherApps:YES];
+	}
+}
+
 static void openLink(NSString *link) {
 	NSURL *url = [NSURL URLWithString:link];
 	if (url) {
@@ -97,11 +116,10 @@ static void installEditMenu(void) {
 }
 
 // Returns NULL if cancelled, otherwise a malloc'd string the caller must free.
-// Must not be called from the main thread.
 const char *prompt(const char *title, const char *message, const char *button, const char *placeholder,
                    const char *value, bool multiline) {
 	__block char *result = NULL;
-	dispatch_sync(dispatch_get_main_queue(), ^{
+	runOnMain(^{
 		installEditMenu();
 
 		NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 460, multiline ? 80 : 24)];
@@ -123,17 +141,27 @@ const char *prompt(const char *title, const char *message, const char *button, c
 		alert.accessoryView = field;
 		alert.window.initialFirstResponder = field;
 
-		// Menu bar apps are never active on their own, so the alert would open behind other windows.
-		if (@available(macOS 14, *)) {
-			[NSApp activate];
-		} else {
-			[NSApp activateIgnoringOtherApps:YES];
-		}
+		activate();
 		if ([alert runModal] == NSAlertFirstButtonReturn) {
 			result = strdup(field.stringValue.UTF8String);
 		}
 	});
 	return result;
+}
+
+void showAlert(const char *title, const char *message) {
+	runOnMain(^{
+		@autoreleasepool {
+			// Creates NSApp when called before the app has started.
+			[NSApplication sharedApplication];
+			NSAlert *alert = [NSAlert new];
+			alert.alertStyle = NSAlertStyleWarning;
+			alert.messageText = str(title);
+			alert.informativeText = str(message);
+			activate();
+			[alert runModal];
+		}
+	});
 }
 
 bool loginItemEnabled(void) {

@@ -11,6 +11,7 @@ void notify(const char *title, const char *body, const char *url, const char *th
 void openURL(const char *url);
 const char *prompt(const char *title, const char *message, const char *button, const char *placeholder,
                    const char *value, bool multiline);
+void showAlert(const char *title, const char *message);
 bool loginItemEnabled(void);
 const char *setLoginItem(bool enabled);
 */
@@ -41,7 +42,7 @@ func openURL(url string) {
 	C.openURL(u)
 }
 
-// prompt shows a text input dialog and reports false if it was cancelled. It must not be called from the main thread.
+// prompt shows a text input dialog and reports false if it was cancelled.
 func prompt(title, message, button, placeholder, value string, multiline bool) (string, bool) {
 	args := []*C.char{C.CString(title), C.CString(message), C.CString(button), C.CString(placeholder), C.CString(value)}
 	defer func() {
@@ -55,6 +56,13 @@ func prompt(title, message, button, placeholder, value string, multiline bool) (
 	}
 	defer C.free(unsafe.Pointer(s))
 	return C.GoString(s), true
+}
+
+func showAlert(title, message string) {
+	t, m := C.CString(title), C.CString(message)
+	defer C.free(unsafe.Pointer(t))
+	defer C.free(unsafe.Pointer(m))
+	C.showAlert(t, m)
 }
 
 func loginItemEnabled() bool {

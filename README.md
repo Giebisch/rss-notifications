@@ -103,7 +103,7 @@ A name set with **Rename…** is stored in an additional `name` field. The app r
 
 On every check the app fetches each feed and identifies its items by GUID, falling back to the link and then the title. Items whose ID is not in the feed's `seen` list trigger a notification. The list keeps the most recent 1,000 IDs, so an item that briefly disappears from a feed (for example because of a stale cached copy) does not trigger a second notification when it comes back.
 
-The app is written in Go. About 150 lines of Objective-C, compiled through cgo, cover the parts that need Apple frameworks with no Go bindings:
+The app is written in Go. About 180 lines of Objective-C, compiled through cgo, cover the parts that need Apple frameworks with no Go bindings:
 
 | Component | Implementation |
 |---|---|
@@ -111,8 +111,7 @@ The app is written in Go. About 150 lines of Objective-C, compiled through cgo, 
 | Feed parsing | [gofeed](https://github.com/mmcdole/gofeed) |
 | Notifications and click handling | `UNUserNotificationCenter` (`macos_darwin.m`) |
 | Launch at login | `SMAppService` (`macos_darwin.m`) |
-| Add and rename dialogs | `NSAlert` (`macos_darwin.m`) |
-| Error dialogs | [zenity](https://github.com/ncruces/zenity) |
+| Dialogs | `NSAlert` (`macos_darwin.m`) |
 
 macOS only lets apps that run from a signed `.app` bundle use `UNUserNotificationCenter`. The plain binary therefore refuses to run on its own: `rss-notifications install` (or `make build` during development) wraps it in a bundle and signs it ad hoc. No Apple developer account is needed.
 

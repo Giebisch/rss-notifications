@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"fyne.io/systray"
-	"github.com/ncruces/zenity"
 )
 
 //go:embed icon.png
@@ -199,5 +198,5 @@ func toggleLoginItem(login *systray.MenuItem) {
 
 func showError(title string, err error) {
 	log.Printf("%s: %v", title, err)
-	_ = zenity.Error(err.Error(), zenity.Title(title))
+	showAlert(title, err.Error())
 }
