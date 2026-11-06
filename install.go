@@ -12,6 +12,9 @@ import (
 //go:embed Info.plist
 var infoPlist []byte
 
+//go:embed AppIcon.icns
+var appIcon []byte
+
 // Must match CFBundleExecutable in Info.plist.
 const bundleExecutable = "rss-notifications"
 
@@ -29,8 +32,11 @@ func install() (string, error) {
 	}
 	app := filepath.Join(home, "Applications", "RSS Notifications.app")
 	macOS := filepath.Join(app, "Contents", "MacOS")
-	if err := os.MkdirAll(macOS, 0o755); err != nil {
-		return "", err
+	resources := filepath.Join(app, "Contents", "Resources")
+	for _, dir := range []string{macOS, resources} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return "", err
+		}
 	}
 
 	exe, err := os.Executable()
@@ -51,6 +57,9 @@ func install() (string, error) {
 	}
 
 	if err := os.WriteFile(filepath.Join(app, "Contents", "Info.plist"), infoPlist, 0o644); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(resources, "AppIcon.icns"), appIcon, 0o644); err != nil {
 		return "", err
 	}
 	if out, err := exec.Command("codesign", "--force", "--sign", "-", app).CombinedOutput(); err != nil {

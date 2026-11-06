@@ -5,9 +5,10 @@ BIN := rss-notifications
 
 # Notifications only work from a signed .app bundle; ad-hoc signing is enough.
 build:
-	mkdir -p "$(APP)/Contents/MacOS"
+	mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources"
 	go build -o "$(APP)/Contents/MacOS/$(BIN)" .
 	cp Info.plist "$(APP)/Contents/Info.plist"
+	cp AppIcon.icns "$(APP)/Contents/Resources/AppIcon.icns"
 	codesign --force --sign - "$(APP)"
 
 run: build
