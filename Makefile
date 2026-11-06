@@ -12,7 +12,7 @@ build:
 	codesign --force --sign - "$(APP)"
 
 run: build
-	pkill -x $(BIN) || true
+	pkill -x $(BIN) && sleep 1 || true
 	open "$(APP)"
 
 install:
