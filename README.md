@@ -109,9 +109,9 @@ The app is written in Go. About 150 lines of Objective-C, compiled through cgo, 
 |---|---|
 | Menu bar icon and menu | [fyne.io/systray](https://github.com/fyne-io/systray) |
 | Feed parsing | [gofeed](https://github.com/mmcdole/gofeed) |
-| Notifications and click handling | `UNUserNotificationCenter` (`darwin.m`) |
-| Launch at login | `SMAppService` (`darwin.m`) |
-| Add and rename dialogs | `NSAlert` (`darwin.m`) |
+| Notifications and click handling | `UNUserNotificationCenter` (`macos_darwin.m`) |
+| Launch at login | `SMAppService` (`macos_darwin.m`) |
+| Add and rename dialogs | `NSAlert` (`macos_darwin.m`) |
 | Error dialogs | [zenity](https://github.com/ncruces/zenity) |
 
 macOS only lets apps that run from a signed `.app` bundle use `UNUserNotificationCenter`. The plain binary therefore refuses to run on its own: `rss-notifications install` (or `make build` during development) wraps it in a bundle and signs it ad hoc. No Apple developer account is needed.

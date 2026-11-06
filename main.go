@@ -33,7 +33,7 @@ var intervals = []struct {
 }
 
 type app struct {
-	store           *Store
+	store           *store
 	menuMu          sync.Mutex
 	intervalChanged chan struct{}
 }
@@ -59,11 +59,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	store, err := OpenStore(filepath.Join(dir, "RSS Notifications", "feeds.json"))
+	s, err := openStore(filepath.Join(dir, "RSS Notifications", "feeds.json"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	a := &app{store: store, intervalChanged: make(chan struct{}, 1)}
+	a := &app{store: s, intervalChanged: make(chan struct{}, 1)}
 	notifyInit()
 	systray.Run(a.onReady, nil)
 }
@@ -76,7 +76,7 @@ func (a *app) onReady() {
 		for {
 			a.check()
 			select {
-			case <-time.After(a.store.Interval()):
+			case <-time.After(a.store.interval()):
 			case <-a.intervalChanged:
 			}
 		}
@@ -89,12 +89,12 @@ func (a *app) buildMenu() {
 	// Removing the items closes their ClickedCh, which ends the onClick goroutines of the previous menu.
 	systray.ResetMenu()
 
-	feeds := a.store.Feeds()
+	feeds := a.store.feeds()
 	for _, f := range feeds {
-		item := systray.AddMenuItem(f.DisplayName(), f.URL)
-		website := item.AddSubMenuItem("Open Website", f.Link)
-		rename := item.AddSubMenuItem("Rename…", "")
-		remove := item.AddSubMenuItem("Remove", "")
+		menu := systray.AddMenuItem(f.displayName(), f.URL)
+		website := menu.AddSubMenuItem("Open Website", f.Link)
+		rename := menu.AddSubMenuItem("Rename…", "")
+		remove := menu.AddSubMenuItem("Remove", "")
 		if f.Link == "" {
 			website.Disable()
 		}
@@ -111,7 +111,7 @@ func (a *app) buildMenu() {
 	refresh := systray.AddMenuItem("Refresh Every", "")
 	var options []*systray.MenuItem
 	for _, iv := range intervals {
-		options = append(options, refresh.AddSubMenuItemCheckbox(iv.label, "", iv.d == a.store.Interval()))
+		options = append(options, refresh.AddSubMenuItemCheckbox(iv.label, "", iv.d == a.store.interval()))
 	}
 	for i, opt := range options {
 		go onClick(opt, func() { a.setInterval(intervals[i].d, options, opt) })
@@ -126,15 +126,15 @@ func (a *app) buildMenu() {
 	go onClick(quit, systray.Quit)
 }
 
-func onClick(item *systray.MenuItem, f func()) {
-	for range item.ClickedCh {
+func onClick(mi *systray.MenuItem, f func()) {
+	for range mi.ClickedCh {
 		f()
 	}
 }
 
 func (a *app) check() {
-	for _, it := range a.store.Check(context.Background()) {
-		notify(it.FeedTitle, it.Title, it.Link, it.FeedURL)
+	for _, it := range a.store.check(context.Background()) {
+		notify(it.FeedName, it.Title, it.Link, it.FeedURL)
 	}
 }
 
@@ -144,19 +144,19 @@ func (a *app) addFeed() {
 	if !ok || url == "" {
 		return
 	}
-	if err := a.store.Add(context.Background(), url); err != nil {
+	if err := a.store.add(context.Background(), url); err != nil {
 		showError("Could not add feed", err)
 		return
 	}
 	a.buildMenu()
 }
 
-func (a *app) renameFeed(f Feed) {
-	name, ok := prompt("Rename Feed", "Leave empty to use the feed's own title.", "Rename", f.Title, f.DisplayName(), false)
+func (a *app) renameFeed(f feed) {
+	name, ok := prompt("Rename Feed", "Leave empty to use the feed's own title.", "Rename", f.Title, f.displayName(), false)
 	if !ok {
 		return
 	}
-	if err := a.store.Rename(f.URL, name); err != nil {
+	if err := a.store.rename(f.URL, name); err != nil {
 		showError("Could not rename feed", err)
 		return
 	}
@@ -164,7 +164,7 @@ func (a *app) renameFeed(f Feed) {
 }
 
 func (a *app) removeFeed(url string) {
-	if err := a.store.Remove(url); err != nil {
+	if err := a.store.remove(url); err != nil {
 		showError("Could not remove feed", err)
 		return
 	}
@@ -172,7 +172,7 @@ func (a *app) removeFeed(url string) {
 }
 
 func (a *app) setInterval(d time.Duration, options []*systray.MenuItem, selected *systray.MenuItem) {
-	if err := a.store.SetInterval(d); err != nil {
+	if err := a.store.setInterval(d); err != nil {
 		showError("Could not change refresh interval", err)
 		return
 	}
@@ -186,14 +186,14 @@ func (a *app) setInterval(d time.Duration, options []*systray.MenuItem, selected
 	}
 }
 
-func toggleLoginItem(item *systray.MenuItem) {
-	if err := setLoginItem(!item.Checked()); err != nil {
+func toggleLoginItem(login *systray.MenuItem) {
+	if err := setLoginItem(!login.Checked()); err != nil {
 		showError("Could not change login item", err)
 	}
 	if loginItemEnabled() {
-		item.Check()
+		login.Check()
 	} else {
-		item.Uncheck()
+		login.Uncheck()
 	}
 }
 

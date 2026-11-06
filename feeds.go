@@ -23,7 +23,7 @@ const (
 	maxSeen = 1000
 )
 
-type Feed struct {
+type feed struct {
 	URL   string `json:"url"`
 	Title string `json:"title"`
 	// Name is set by the user and overrides Title.
@@ -32,34 +32,34 @@ type Feed struct {
 	Seen []string `json:"seen"`
 }
 
-func (f Feed) DisplayName() string {
+func (f feed) displayName() string {
 	if f.Name != "" {
 		return f.Name
 	}
 	return f.Title
 }
 
-type Item struct {
-	FeedURL   string
-	FeedTitle string
-	Title     string
-	Link      string
+type item struct {
+	FeedURL  string
+	FeedName string
+	Title    string
+	Link     string
 }
 
 type config struct {
 	IntervalMinutes int    `json:"interval_minutes"`
-	Feeds           []Feed `json:"feeds"`
+	Feeds           []feed `json:"feeds"`
 }
 
-type Store struct {
+type store struct {
 	mu     sync.Mutex
 	path   string
 	cfg    config
 	parser *gofeed.Parser
 }
 
-func OpenStore(path string) (*Store, error) {
-	s := &Store{path: path, cfg: config{IntervalMinutes: 10}, parser: gofeed.NewParser()}
+func openStore(path string) (*store, error) {
+	s := &store{path: path, cfg: config{IntervalMinutes: 10}, parser: gofeed.NewParser()}
 	s.parser.UserAgent = "rss-notifications/1.0"
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -74,32 +74,32 @@ func OpenStore(path string) (*Store, error) {
 	return s, nil
 }
 
-func (s *Store) Interval() time.Duration {
+func (s *store) interval() time.Duration {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return time.Duration(max(s.cfg.IntervalMinutes, 1)) * time.Minute
 }
 
-func (s *Store) SetInterval(d time.Duration) error {
+func (s *store) setInterval(d time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cfg.IntervalMinutes = int(d / time.Minute)
 	return s.save()
 }
 
-func (s *Store) Feeds() []Feed {
+func (s *store) feeds() []feed {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return slices.Clone(s.cfg.Feeds)
 }
 
-// Add fetches the feed and marks its current items as seen, so adding a feed doesn't trigger notifications.
-func (s *Store) Add(ctx context.Context, url string) error {
+// add fetches the feed and marks its current items as seen, so adding a feed doesn't trigger notifications.
+func (s *store) add(ctx context.Context, url string) error {
 	parsed, err := s.fetch(ctx, url)
 	if err != nil {
 		return err
 	}
-	f := Feed{URL: url, Title: parsed.Title, Link: parsed.Link}
+	f := feed{URL: url, Title: parsed.Title, Link: parsed.Link}
 	if f.Title == "" {
 		f.Title = url
 	}
@@ -114,8 +114,8 @@ func (s *Store) Add(ctx context.Context, url string) error {
 	return s.save()
 }
 
-// Rename sets the feed's name; an empty name falls back to the feed's own title.
-func (s *Store) Rename(url, name string) error {
+// rename sets the feed's name; an empty name falls back to the feed's own title.
+func (s *store) rename(url, name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	i := s.index(url)
@@ -126,17 +126,17 @@ func (s *Store) Rename(url, name string) error {
 	return s.save()
 }
 
-func (s *Store) Remove(url string) error {
+func (s *store) remove(url string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.cfg.Feeds = slices.DeleteFunc(s.cfg.Feeds, func(f Feed) bool { return f.URL == url })
+	s.cfg.Feeds = slices.DeleteFunc(s.cfg.Feeds, func(f feed) bool { return f.URL == url })
 	return s.save()
 }
 
-// Check fetches all feeds and returns the items not seen before.
-func (s *Store) Check(ctx context.Context) []Item {
-	var items []Item
-	for _, f := range s.Feeds() {
+// check fetches all feeds and returns the items not seen before.
+func (s *store) check(ctx context.Context) []item {
+	var items []item
+	for _, f := range s.feeds() {
 		parsed, err := s.fetch(ctx, f.URL)
 		if err != nil {
 			log.Printf("fetch %s: %v", f.URL, err)
@@ -145,15 +145,15 @@ func (s *Store) Check(ctx context.Context) []Item {
 		// Diff under the lock against the stored state, so concurrent checks never report an item twice.
 		s.mu.Lock()
 		if i := s.index(f.URL); i >= 0 {
-			feed := &s.cfg.Feeds[i]
+			stored := &s.cfg.Feeds[i]
 			var fresh []*gofeed.Item
-			feed.Seen, fresh = diff(feed.Seen, parsed.Items)
+			stored.Seen, fresh = diff(stored.Seen, parsed.Items)
 			for _, it := range fresh {
 				link := it.Link
 				if link == "" {
-					link = feed.Link
+					link = stored.Link
 				}
-				items = append(items, Item{FeedURL: feed.URL, FeedTitle: feed.DisplayName(), Title: it.Title, Link: link})
+				items = append(items, item{FeedURL: stored.URL, FeedName: stored.displayName(), Title: it.Title, Link: link})
 			}
 		}
 		s.mu.Unlock()
@@ -167,19 +167,19 @@ func (s *Store) Check(ctx context.Context) []Item {
 	return items
 }
 
-func (s *Store) fetch(ctx context.Context, url string) (*gofeed.Feed, error) {
+func (s *store) fetch(ctx context.Context, url string) (*gofeed.Feed, error) {
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 	return s.parser.ParseURLWithContext(url, ctx)
 }
 
 // index must be called with s.mu held.
-func (s *Store) index(url string) int {
-	return slices.IndexFunc(s.cfg.Feeds, func(f Feed) bool { return f.URL == url })
+func (s *store) index(url string) int {
+	return slices.IndexFunc(s.cfg.Feeds, func(f feed) bool { return f.URL == url })
 }
 
 // save must be called with s.mu held.
-func (s *Store) save() error {
+func (s *store) save() error {
 	data, err := json.MarshalIndent(s.cfg, "", "  ")
 	if err != nil {
 		return err

@@ -28,21 +28,21 @@ func TestCheckReportsOnlyNewItems(t *testing.T) {
 	defer srv.Close()
 
 	path := filepath.Join(t.TempDir(), "feeds.json")
-	store, err := OpenStore(path)
+	s, err := openStore(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := store.Add(ctx, srv.URL); err != nil {
+	if err := s.add(ctx, srv.URL); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Add(ctx, srv.URL); err == nil {
+	if err := s.add(ctx, srv.URL); err == nil {
 		t.Error("adding a duplicate feed should fail")
 	}
-	if got := store.Check(ctx); len(got) != 0 {
+	if got := s.check(ctx); len(got) != 0 {
 		t.Fatalf("existing items reported as new: %+v", got)
 	}
-	if err := store.Rename(srv.URL, " Custom "); err != nil {
+	if err := s.rename(srv.URL, " Custom "); err != nil {
 		t.Fatal(err)
 	}
 
@@ -51,23 +51,23 @@ func TestCheckReportsOnlyNewItems(t *testing.T) {
 	mu.Unlock()
 
 	// Reopen to verify the seen state and name were persisted.
-	store, err = OpenStore(path)
+	s, err = openStore(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := store.Check(ctx)
-	want := Item{FeedURL: srv.URL, FeedTitle: "Custom", Title: "Item c", Link: "https://example.com/c"}
+	got := s.check(ctx)
+	want := item{FeedURL: srv.URL, FeedName: "Custom", Title: "Item c", Link: "https://example.com/c"}
 	if len(got) != 1 || got[0] != want {
 		t.Fatalf("got %+v, want [%+v]", got, want)
 	}
-	if got := store.Check(ctx); len(got) != 0 {
+	if got := s.check(ctx); len(got) != 0 {
 		t.Fatalf("item reported twice: %+v", got)
 	}
 
-	if err := store.Rename(srv.URL, ""); err != nil {
+	if err := s.rename(srv.URL, ""); err != nil {
 		t.Fatal(err)
 	}
-	if got := store.Feeds()[0].DisplayName(); got != "Test" {
+	if got := s.feeds()[0].displayName(); got != "Test" {
 		t.Errorf("empty name should fall back to the feed title, got %q", got)
 	}
 }
