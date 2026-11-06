@@ -1,7 +1,7 @@
 APP := build/RSS Notifications.app
 BIN := rss-notifications
 
-.PHONY: build run install test clean
+.PHONY: build run install test clean demo
 
 # Notifications only work from a signed .app bundle; ad-hoc signing is enough.
 build:
@@ -25,3 +25,7 @@ test:
 
 clean:
 	rm -rf build
+
+# Runs the installed app with demo feeds for recording the README video.
+demo:
+	python3 scripts/demo.py
