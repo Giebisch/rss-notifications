@@ -1,6 +1,18 @@
-# RSS Notifications
+<p align="center">
+  <img src="docs/icon.png" width="128" height="128" alt="RSS Notifications icon">
+</p>
 
-[![CI](https://github.com/Giebisch/rss-notifications/actions/workflows/ci.yml/badge.svg)](https://github.com/Giebisch/rss-notifications/actions/workflows/ci.yml)
+<h1 align="center">RSS Notifications</h1>
+
+<p align="center">
+  Native macOS notifications for your RSS and Atom feeds.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Giebisch/rss-notifications/actions/workflows/ci.yml"><img src="https://github.com/Giebisch/rss-notifications/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B-lightgrey" alt="macOS 13+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
+</p>
 
 A small macOS menu bar app that watches your RSS and Atom feeds and posts a native notification for every new item. Click the notification and the article opens in your browser.
 
