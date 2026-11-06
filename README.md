@@ -30,11 +30,19 @@ go install github.com/Giebisch/rss-notifications@latest
 rss-notifications install
 ```
 
-The second command creates `RSS Notifications.app` in `~/Applications`, signs it ad hoc and starts it. On first launch macOS asks for permission to show notifications. If `rss-notifications` is not found, add `$(go env GOPATH)/bin` to your `PATH`.
+The second command creates `RSS Notifications.app` in `~/Applications`, signs it ad hoc and starts it. If `rss-notifications` is not found, add `$(go env GOPATH)/bin` to your `PATH`.
 
 To update, run both commands again, then quit the app from the menu bar and open it again.
 
 From a clone of this repository, `make install` does the same.
+
+### Allow notifications
+
+The app can only notify you once macOS allows it to. On first launch macOS asks for permission; if you missed or declined that prompt, or notifications don't show up:
+
+1. Open **System Settings → Notifications → RSS Notifications**.
+2. Turn on **Allow notifications**.
+3. Choose **Banners** or **Alerts** as the style. With **None**, new items only appear in Notification Center.
 
 ### Uninstall
 
