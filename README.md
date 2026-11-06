@@ -11,7 +11,7 @@ No feed reader, no unread counters, no account. Just a notification when somethi
 - **Native notifications** through Apple's UserNotifications framework, grouped per feed in Notification Center. Clicking one opens the item's link in your default browser.
 - **Menu bar only**: no Dock icon and no windows.
 - **RSS, Atom and JSON Feed** support via [gofeed](https://github.com/mmcdole/gofeed).
-- **Manage feeds from the menu**: add, rename and remove feeds, or open a feed's website.
+- **Manage feeds from the menu**: add, mute, rename and remove feeds, or open a feed's website.
 - **Adjustable refresh interval** from 1 minute to 1 hour. Changes apply immediately.
 - **No notification flood**: items that already exist when you add a feed are skipped, and seen items are remembered across restarts.
 - **Launch at login** via `SMAppService`, so the app shows up under Login Items like any other app.
@@ -69,7 +69,9 @@ Refresh Every      ▸
 Quit
 ```
 
-Each feed has a submenu with **Open Website**, **Rename…** and **Remove**.
+Each feed has a submenu with **Open Website**, **Mute**, **Rename…** and **Remove**.
+
+**Mute** pauses notifications for a feed. Muted feeds are still checked, so unmuting doesn't send a notification for everything published in the meantime.
 
 **Add Feed…** asks for the feed URL, not the website URL. The app fetches the feed once to validate it and takes the name from the feed's title.
 
@@ -97,7 +99,7 @@ Feeds and settings are stored in
 }
 ```
 
-A name set with **Rename…** is stored in an additional `name` field. The app rewrites this file after every check, so quit it before editing the file by hand.
+A name set with **Rename…** is stored in an additional `name` field, and a muted feed has `"muted": true`. The app rewrites this file after every check, so quit it before editing the file by hand.
 
 ## How it works
 

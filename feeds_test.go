@@ -64,6 +64,22 @@ func TestCheckReportsOnlyNewItems(t *testing.T) {
 		t.Fatalf("item reported twice: %+v", got)
 	}
 
+	if err := s.setMuted(srv.URL, true); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	items = []string{"d", "c", "a", "b"}
+	mu.Unlock()
+	if got := s.check(ctx); len(got) != 0 {
+		t.Fatalf("muted feed reported items: %+v", got)
+	}
+	if err := s.setMuted(srv.URL, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.check(ctx); len(got) != 0 {
+		t.Fatalf("items published while muted reported after unmuting: %+v", got)
+	}
+
 	if err := s.rename(srv.URL, ""); err != nil {
 		t.Fatal(err)
 	}

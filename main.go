@@ -95,12 +95,14 @@ func (a *app) buildMenu() {
 	for _, f := range feeds {
 		menu := systray.AddMenuItem(f.displayName(), f.URL)
 		website := menu.AddSubMenuItem("Open Website", f.Link)
+		mute := menu.AddSubMenuItemCheckbox("Mute", "", f.Muted)
 		rename := menu.AddSubMenuItem("Rename…", "")
 		remove := menu.AddSubMenuItem("Remove", "")
 		if f.Link == "" {
 			website.Disable()
 		}
 		go onClick(website, func() { openURL(f.Link) })
+		go onClick(mute, func() { a.toggleMute(f.URL, mute) })
 		go onClick(rename, func() { a.renameFeed(f) })
 		go onClick(remove, func() { a.removeFeed(f.URL) })
 	}
@@ -151,6 +153,18 @@ func (a *app) addFeed() {
 		return
 	}
 	a.buildMenu()
+}
+
+func (a *app) toggleMute(url string, mute *systray.MenuItem) {
+	if err := a.store.setMuted(url, !mute.Checked()); err != nil {
+		showError("Could not change mute setting", err)
+		return
+	}
+	if mute.Checked() {
+		mute.Uncheck()
+	} else {
+		mute.Check()
+	}
 }
 
 func (a *app) renameFeed(f feed) {

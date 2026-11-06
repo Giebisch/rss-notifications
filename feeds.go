@@ -27,9 +27,11 @@ type feed struct {
 	URL   string `json:"url"`
 	Title string `json:"title"`
 	// Name is set by the user and overrides Title.
-	Name string   `json:"name,omitempty"`
-	Link string   `json:"link"`
-	Seen []string `json:"seen"`
+	Name string `json:"name,omitempty"`
+	// Muted feeds are still checked, so unmuting doesn't report the items published in the meantime.
+	Muted bool     `json:"muted,omitempty"`
+	Link  string   `json:"link"`
+	Seen  []string `json:"seen"`
 }
 
 func (f feed) displayName() string {
@@ -126,6 +128,17 @@ func (s *store) rename(url, name string) error {
 	return s.save()
 }
 
+func (s *store) setMuted(url string, muted bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := s.index(url)
+	if i < 0 {
+		return errors.New("feed not found")
+	}
+	s.cfg.Feeds[i].Muted = muted
+	return s.save()
+}
+
 func (s *store) remove(url string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -148,6 +161,9 @@ func (s *store) check(ctx context.Context) []item {
 			stored := &s.cfg.Feeds[i]
 			var fresh []*gofeed.Item
 			stored.Seen, fresh = diff(stored.Seen, parsed.Items)
+			if stored.Muted {
+				fresh = nil
+			}
 			for _, it := range fresh {
 				link := it.Link
 				if link == "" {
