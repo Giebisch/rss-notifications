@@ -96,6 +96,8 @@ func (a *app) buildMenu() {
 		menu := systray.AddMenuItem(f.displayName(), f.URL)
 		website := menu.AddSubMenuItem("Open Website", f.Link)
 		mute := menu.AddSubMenuItemCheckbox("Mute", "", f.Muted)
+		include := menu.AddSubMenuItemCheckbox("Include Filter…", f.Include, f.Include != "")
+		exclude := menu.AddSubMenuItemCheckbox("Exclude Filter…", f.Exclude, f.Exclude != "")
 		rename := menu.AddSubMenuItem("Rename…", "")
 		remove := menu.AddSubMenuItem("Remove", "")
 		if f.Link == "" {
@@ -103,6 +105,14 @@ func (a *app) buildMenu() {
 		}
 		go onClick(website, func() { openURL(f.Link) })
 		go onClick(mute, func() { a.toggleMute(f.URL, mute) })
+		go onClick(include, func() {
+			a.editFilter("Include Filter", "Only notify about items whose title matches this regular expression.",
+				"e.g. Go|Rust", f.Include, func(p string) error { return a.store.setInclude(f.URL, p) })
+		})
+		go onClick(exclude, func() {
+			a.editFilter("Exclude Filter", "Don't notify about items whose title matches this regular expression.",
+				"e.g. Sponsored|Podcast", f.Exclude, func(p string) error { return a.store.setExclude(f.URL, p) })
+		})
 		go onClick(rename, func() { a.renameFeed(f) })
 		go onClick(remove, func() { a.removeFeed(f.URL) })
 	}
@@ -165,6 +175,18 @@ func (a *app) toggleMute(url string, mute *systray.MenuItem) {
 	} else {
 		mute.Check()
 	}
+}
+
+func (a *app) editFilter(title, message, placeholder, current string, set func(pattern string) error) {
+	pattern, ok := prompt(title, message+" Leave empty to turn the filter off.", "Save", placeholder, current, false)
+	if !ok {
+		return
+	}
+	if err := set(pattern); err != nil {
+		showError("Invalid filter", err)
+		return
+	}
+	a.buildMenu()
 }
 
 func (a *app) renameFeed(f feed) {

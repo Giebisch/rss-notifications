@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -85,5 +86,43 @@ func TestCheckReportsOnlyNewItems(t *testing.T) {
 	}
 	if got := s.feeds()[0].displayName(); got != "Test" {
 		t.Errorf("empty name should fall back to the feed title, got %q", got)
+	}
+}
+
+func TestFeedWants(t *testing.T) {
+	tests := []struct {
+		include, exclude, title string
+		want                    bool
+	}{
+		{"", "", "anything", true},
+		{"Go|Rust", "", "Go 1.25 released", true},
+		{"Go|Rust", "", "Python news", false},
+		{"Go", "", "go is lowercase", false},
+		{"(?i)go", "", "go is lowercase", true},
+		{"", "Sponsored", "Sponsored: buy this", false},
+		{"Go", "Sponsored", "Sponsored: Go course", false},
+		{"Go", "Sponsored", "Go generics", true},
+	}
+	for _, tt := range tests {
+		f := feed{Include: tt.include, Exclude: tt.exclude}
+		if got := f.wants(tt.title); got != tt.want {
+			t.Errorf("include %q, exclude %q, title %q: got %v, want %v", tt.include, tt.exclude, tt.title, got, tt.want)
+		}
+	}
+}
+
+func TestInvalidFilter(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "feeds.json")
+	s := &store{path: path, cfg: config{Feeds: []feed{{URL: "https://example.com/feed"}}}}
+	if err := s.setInclude("https://example.com/feed", "(unclosed"); err == nil {
+		t.Error("invalid include pattern was accepted")
+	}
+
+	// Hand-edited invalid patterns are rejected on load instead of panicking later.
+	if err := os.WriteFile(path, []byte(`{"feeds": [{"url": "u", "exclude": "["}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openStore(path); err == nil {
+		t.Error("store with an invalid pattern was loaded")
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -29,9 +30,13 @@ type feed struct {
 	// Name is set by the user and overrides Title.
 	Name string `json:"name,omitempty"`
 	// Muted feeds are still checked, so unmuting doesn't report the items published in the meantime.
-	Muted bool     `json:"muted,omitempty"`
-	Link  string   `json:"link"`
-	Seen  []string `json:"seen"`
+	Muted bool `json:"muted,omitempty"`
+	// Include and Exclude are regular expressions matched against item titles.
+	// They are validated when set and when loaded, so they always compile.
+	Include string   `json:"include,omitempty"`
+	Exclude string   `json:"exclude,omitempty"`
+	Link    string   `json:"link"`
+	Seen    []string `json:"seen"`
 }
 
 func (f feed) displayName() string {
@@ -39,6 +44,14 @@ func (f feed) displayName() string {
 		return f.Name
 	}
 	return f.Title
+}
+
+// wants reports whether an item title passes the include and exclude filters.
+func (f feed) wants(title string) bool {
+	if f.Include != "" && !regexp.MustCompile(f.Include).MatchString(title) {
+		return false
+	}
+	return f.Exclude == "" || !regexp.MustCompile(f.Exclude).MatchString(title)
 }
 
 type item struct {
@@ -72,6 +85,13 @@ func openStore(path string) (*store, error) {
 	}
 	if err := json.Unmarshal(data, &s.cfg); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	for _, f := range s.cfg.Feeds {
+		for _, pattern := range []string{f.Include, f.Exclude} {
+			if _, err := regexp.Compile(pattern); err != nil {
+				return nil, fmt.Errorf("filter of %s: %w", f.URL, err)
+			}
+		}
 	}
 	return s, nil
 }
@@ -118,24 +138,38 @@ func (s *store) add(ctx context.Context, url string) error {
 
 // rename sets the feed's name; an empty name falls back to the feed's own title.
 func (s *store) rename(url, name string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	i := s.index(url)
-	if i < 0 {
-		return errors.New("feed not found")
-	}
-	s.cfg.Feeds[i].Name = strings.TrimSpace(name)
-	return s.save()
+	return s.update(url, func(f *feed) { f.Name = strings.TrimSpace(name) })
 }
 
 func (s *store) setMuted(url string, muted bool) error {
+	return s.update(url, func(f *feed) { f.Muted = muted })
+}
+
+// setInclude and setExclude set a filter pattern; an empty pattern turns the filter off.
+func (s *store) setInclude(url, pattern string) error {
+	pattern = strings.TrimSpace(pattern)
+	if _, err := regexp.Compile(pattern); err != nil {
+		return err
+	}
+	return s.update(url, func(f *feed) { f.Include = pattern })
+}
+
+func (s *store) setExclude(url, pattern string) error {
+	pattern = strings.TrimSpace(pattern)
+	if _, err := regexp.Compile(pattern); err != nil {
+		return err
+	}
+	return s.update(url, func(f *feed) { f.Exclude = pattern })
+}
+
+func (s *store) update(url string, change func(*feed)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	i := s.index(url)
 	if i < 0 {
 		return errors.New("feed not found")
 	}
-	s.cfg.Feeds[i].Muted = muted
+	change(&s.cfg.Feeds[i])
 	return s.save()
 }
 
@@ -165,6 +199,9 @@ func (s *store) check(ctx context.Context) []item {
 				fresh = nil
 			}
 			for _, it := range fresh {
+				if !stored.wants(it.Title) {
+					continue
+				}
 				link := it.Link
 				if link == "" {
 					link = stored.Link

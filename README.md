@@ -24,6 +24,7 @@ No feed reader, no unread counters, no account. Just a notification when somethi
 - **Menu bar only**: no Dock icon and no windows.
 - **RSS, Atom and JSON Feed** support via [gofeed](https://github.com/mmcdole/gofeed).
 - **Manage feeds from the menu**: add, mute, rename and remove feeds, or open a feed's website.
+- **Include and exclude filters** per feed: regular expressions on the item title decide which items you get notified about.
 - **Adjustable refresh interval** from 1 minute to 1 hour. Changes apply immediately.
 - **No notification flood**: items that already exist when you add a feed are skipped, and seen items are remembered across restarts.
 - **Launch at login** via `SMAppService`, so the app shows up under Login Items like any other app.
@@ -81,9 +82,17 @@ Refresh Every      ▸
 Quit
 ```
 
-Each feed has a submenu with **Open Website**, **Mute**, **Rename…** and **Remove**.
+Each feed has a submenu with **Open Website**, **Mute**, **Include Filter…**, **Exclude Filter…**, **Rename…** and **Remove**.
 
 **Mute** pauses notifications for a feed. Muted feeds are still checked, so unmuting doesn't send a notification for everything published in the meantime.
+
+**Include Filter…** and **Exclude Filter…** take a [regular expression](https://pkg.go.dev/regexp/syntax) that is matched against each item's title. With an include filter you are only notified about matching items; with an exclude filter matching items are skipped. If both are set, a title has to match the include filter and must not match the exclude filter. Matching is case-sensitive; start the pattern with `(?i)` to ignore case. A checkmark shows which filters are active, and leaving the field empty turns a filter off.
+
+| Filter | Pattern | Effect |
+|---|---|---|
+| Include | `Go\|Rust` | only items mentioning Go or Rust |
+| Include | `(?i)release` | only releases, in any capitalisation |
+| Exclude | `^Sponsored` | skips titles starting with "Sponsored" |
 
 **Add Feed…** asks for the feed URL, not the website URL. The app fetches the feed once to validate it and takes the name from the feed's title.
 
@@ -111,7 +120,7 @@ Feeds and settings are stored in
 }
 ```
 
-A name set with **Rename…** is stored in an additional `name` field, and a muted feed has `"muted": true`. The app rewrites this file after every check, so quit it before editing the file by hand.
+Optional fields are `name` (set with **Rename…**), `muted`, `include` and `exclude`. The app rewrites this file after every check, so quit it before editing the file by hand.
 
 ## How it works
 
