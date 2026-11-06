@@ -1,4 +1,4 @@
-module github.com/rgiebisch/rss-notifications
+module github.com/Giebisch/rss-notifications
 
 go 1.25.0
 

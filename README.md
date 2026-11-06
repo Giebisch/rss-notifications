@@ -1,6 +1,6 @@
 # RSS Notifications
 
-[![CI](https://github.com/rgiebisch/rss-notifications/actions/workflows/ci.yml/badge.svg)](https://github.com/rgiebisch/rss-notifications/actions/workflows/ci.yml)
+[![CI](https://github.com/Giebisch/rss-notifications/actions/workflows/ci.yml/badge.svg)](https://github.com/Giebisch/rss-notifications/actions/workflows/ci.yml)
 
 A small macOS menu bar app that watches your RSS and Atom feeds and posts a native notification for every new item. Click the notification and the article opens in your browser.
 
@@ -26,7 +26,7 @@ No feed reader, no unread counters, no account. Just a notification when somethi
 ## Installation
 
 ```sh
-git clone https://github.com/rgiebisch/rss-notifications.git
+git clone https://github.com/Giebisch/rss-notifications.git
 cd rss-notifications
 make install
 ```
