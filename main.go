@@ -54,13 +54,16 @@ func main() {
 		os.Exit(2)
 	}
 
+	// The app has no terminal, so startup errors are shown as a dialog.
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatal(err)
+		showError("Could not start RSS Notifications", err)
+		os.Exit(1)
 	}
 	s, err := openStore(filepath.Join(dir, "RSS Notifications", "feeds.json"))
 	if err != nil {
-		log.Fatal(err)
+		showError("Could not start RSS Notifications", err)
+		os.Exit(1)
 	}
 	a := &app{store: s, intervalChanged: make(chan struct{}, 1)}
 	notifyInit()
