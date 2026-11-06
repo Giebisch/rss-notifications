@@ -18,10 +18,15 @@ import (
 //go:embed icon.png
 var icon []byte
 
-var intervals = []struct {
+//go:embed icon_paused.png
+var iconPaused []byte
+
+type durationOption struct {
 	label string
 	d     time.Duration
-}{
+}
+
+var intervals = []durationOption{
 	{"1 min", time.Minute},
 	{"3 min", 3 * time.Minute},
 	{"5 min", 5 * time.Minute},
@@ -31,10 +36,22 @@ var intervals = []struct {
 	{"1 hour", time.Hour},
 }
 
+// A duration of 0 pauses until notifications are resumed manually.
+var pauses = []durationOption{
+	{"5 min", 5 * time.Minute},
+	{"15 min", 15 * time.Minute},
+	{"30 min", 30 * time.Minute},
+	{"45 min", 45 * time.Minute},
+	{"1 hour", time.Hour},
+	{"Until Resumed", 0},
+}
+
 type app struct {
 	store           *store
 	menuMu          sync.Mutex
 	intervalChanged chan struct{}
+	// resumeTimer rebuilds the menu when a timed pause ends.
+	resumeTimer *time.Timer
 }
 
 func main() {
@@ -71,8 +88,6 @@ func main() {
 }
 
 func (a *app) onReady() {
-	systray.SetTemplateIcon(icon, icon)
-	systray.SetTooltip("RSS Notifications")
 	a.buildMenu()
 	go func() {
 		for {
@@ -130,6 +145,7 @@ func (a *app) buildMenu() {
 	for i, opt := range options {
 		go onClick(opt, func() { a.setInterval(intervals[i].d, options, opt) })
 	}
+	a.addPauseItems()
 	login := systray.AddMenuItemCheckbox("Launch at Login", "", loginItemEnabled())
 	systray.AddSeparator()
 	quit := systray.AddMenuItem("Quit", "")
@@ -138,6 +154,34 @@ func (a *app) buildMenu() {
 	go onClick(checkNow, a.check)
 	go onClick(login, func() { toggleLoginItem(login) })
 	go onClick(quit, systray.Quit)
+}
+
+// addPauseItems adds the pause or resume entries and dims the menu bar icon while paused.
+// It must be called with a.menuMu held.
+func (a *app) addPauseItems() {
+	if a.resumeTimer != nil {
+		a.resumeTimer.Stop()
+	}
+	paused, until := a.store.pauseState()
+	if !paused {
+		systray.SetTemplateIcon(icon, icon)
+		systray.SetTooltip("RSS Notifications")
+		pause := systray.AddMenuItem("Pause Notifications", "")
+		for _, p := range pauses {
+			go onClick(pause.AddSubMenuItem(p.label, ""), func() { a.pause(p.d) })
+		}
+		return
+	}
+
+	systray.SetTemplateIcon(iconPaused, iconPaused)
+	systray.SetTooltip("RSS Notifications (paused)")
+	status := "Notifications Paused"
+	if !until.IsZero() {
+		status += " until " + until.Format("15:04")
+		a.resumeTimer = time.AfterFunc(time.Until(until), a.buildMenu)
+	}
+	systray.AddMenuItem(status, "").Disable()
+	go onClick(systray.AddMenuItem("Resume Notifications", ""), a.resume)
 }
 
 func onClick(mi *systray.MenuItem, f func()) {
@@ -222,6 +266,22 @@ func (a *app) setInterval(d time.Duration, options []*systray.MenuItem, selected
 	case a.intervalChanged <- struct{}{}:
 	default:
 	}
+}
+
+func (a *app) pause(d time.Duration) {
+	if err := a.store.pause(d); err != nil {
+		showError("Could not pause notifications", err)
+		return
+	}
+	a.buildMenu()
+}
+
+func (a *app) resume() {
+	if err := a.store.resume(); err != nil {
+		showError("Could not resume notifications", err)
+		return
+	}
+	a.buildMenu()
 }
 
 func toggleLoginItem(login *systray.MenuItem) {

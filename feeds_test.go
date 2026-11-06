@@ -10,23 +10,33 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
-func TestCheckReportsOnlyNewItems(t *testing.T) {
+// feedServer serves an RSS feed with one item per id; set replaces the items.
+func feedServer(t *testing.T, ids ...string) (url string, set func(ids ...string)) {
 	var mu sync.Mutex
-	items := []string{"a", "b"}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		var b strings.Builder
 		b.WriteString(`<rss version="2.0"><channel><title>Test</title><link>https://example.com</link>`)
-		for _, id := range items {
+		for _, id := range ids {
 			fmt.Fprintf(&b, `<item><guid>%s</guid><title>Item %s</title><link>https://example.com/%s</link></item>`, id, id, id)
 		}
 		b.WriteString(`</channel></rss>`)
 		w.Write([]byte(b.String()))
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
+	return srv.URL, func(newIDs ...string) {
+		mu.Lock()
+		defer mu.Unlock()
+		ids = newIDs
+	}
+}
+
+func TestCheckReportsOnlyNewItems(t *testing.T) {
+	url, setItems := feedServer(t, "a", "b")
 
 	path := filepath.Join(t.TempDir(), "feeds.json")
 	s, err := openStore(path)
@@ -34,22 +44,20 @@ func TestCheckReportsOnlyNewItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := s.add(ctx, srv.URL); err != nil {
+	if err := s.add(ctx, url); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.add(ctx, srv.URL); err == nil {
+	if err := s.add(ctx, url); err == nil {
 		t.Error("adding a duplicate feed should fail")
 	}
 	if got := s.check(ctx); len(got) != 0 {
 		t.Fatalf("existing items reported as new: %+v", got)
 	}
-	if err := s.rename(srv.URL, " Custom "); err != nil {
+	if err := s.rename(url, " Custom "); err != nil {
 		t.Fatal(err)
 	}
 
-	mu.Lock()
-	items = []string{"c", "a", "b"}
-	mu.Unlock()
+	setItems("c", "a", "b")
 
 	// Reopen to verify the seen state and name were persisted.
 	s, err = openStore(path)
@@ -57,7 +65,7 @@ func TestCheckReportsOnlyNewItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := s.check(ctx)
-	want := item{FeedURL: srv.URL, FeedName: "Custom", Title: "Item c", Link: "https://example.com/c"}
+	want := item{FeedURL: url, FeedName: "Custom", Title: "Item c", Link: "https://example.com/c"}
 	if len(got) != 1 || got[0] != want {
 		t.Fatalf("got %+v, want [%+v]", got, want)
 	}
@@ -65,23 +73,21 @@ func TestCheckReportsOnlyNewItems(t *testing.T) {
 		t.Fatalf("item reported twice: %+v", got)
 	}
 
-	if err := s.setMuted(srv.URL, true); err != nil {
+	if err := s.setMuted(url, true); err != nil {
 		t.Fatal(err)
 	}
-	mu.Lock()
-	items = []string{"d", "c", "a", "b"}
-	mu.Unlock()
+	setItems("d", "c", "a", "b")
 	if got := s.check(ctx); len(got) != 0 {
 		t.Fatalf("muted feed reported items: %+v", got)
 	}
-	if err := s.setMuted(srv.URL, false); err != nil {
+	if err := s.setMuted(url, false); err != nil {
 		t.Fatal(err)
 	}
 	if got := s.check(ctx); len(got) != 0 {
 		t.Fatalf("items published while muted reported after unmuting: %+v", got)
 	}
 
-	if err := s.rename(srv.URL, ""); err != nil {
+	if err := s.rename(url, ""); err != nil {
 		t.Fatal(err)
 	}
 	if got := s.feeds()[0].displayName(); got != "Test" {
@@ -124,5 +130,49 @@ func TestInvalidFilter(t *testing.T) {
 	}
 	if _, err := openStore(path); err == nil {
 		t.Error("store with an invalid pattern was loaded")
+	}
+}
+
+func TestPause(t *testing.T) {
+	url, setItems := feedServer(t, "a")
+	s, err := openStore(filepath.Join(t.TempDir(), "feeds.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := s.add(ctx, url); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.pause(0); err != nil {
+		t.Fatal(err)
+	}
+	if paused, until := s.pauseState(); !paused || !until.IsZero() {
+		t.Fatalf("pauseState() = %v, %v; want indefinite pause", paused, until)
+	}
+	setItems("b", "a")
+	if got := s.check(ctx); len(got) != 0 {
+		t.Fatalf("items reported while paused: %+v", got)
+	}
+	if err := s.resume(); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.check(ctx); len(got) != 0 {
+		t.Fatalf("items published while paused reported after resuming: %+v", got)
+	}
+
+	if err := s.pause(time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	if paused, until := s.pauseState(); !paused || time.Until(until) <= 0 {
+		t.Fatalf("pauseState() = %v, %v; want pause for an hour", paused, until)
+	}
+	s.cfg.PausedUntil = time.Now().Add(-time.Second)
+	setItems("c", "b", "a")
+	if paused, _ := s.pauseState(); paused {
+		t.Fatal("expired pause still active")
+	}
+	if got := s.check(ctx); len(got) != 1 {
+		t.Fatalf("got %d items after the pause expired, want 1", len(got))
 	}
 }

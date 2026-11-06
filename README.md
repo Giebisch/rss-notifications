@@ -26,6 +26,7 @@ No feed reader, no unread counters, no account. Just a notification when somethi
 - **Manage feeds from the menu**: add, mute, rename and remove feeds, or open a feed's website.
 - **Include and exclude filters** per feed: regular expressions on the item title decide which items you get notified about.
 - **Adjustable refresh interval** from 1 minute to 1 hour. Changes apply immediately.
+- **Pause notifications** for 5 minutes up to an hour, or until you resume them.
 - **No notification flood**: items that already exist when you add a feed are skipped, and seen items are remembered across restarts.
 - **Launch at login** via `SMAppService`, so the app shows up under Login Items like any other app.
 - **Plain JSON config** you can back up or inspect.
@@ -71,14 +72,15 @@ rm "$(go env GOPATH)/bin/rss-notifications"
 Everything is in the menu behind the RSS icon in the menu bar:
 
 ```
-Hacker News        ▸
-The Go Blog        ▸
-─────────────────────
+Hacker News           ▸
+The Go Blog           ▸
+───────────────────────
 Add Feed…
 Check Now
-Refresh Every      ▸
+Refresh Every         ▸
+Pause Notifications   ▸
 ✓ Launch at Login
-─────────────────────
+───────────────────────
 Quit
 ```
 
@@ -93,6 +95,8 @@ Each feed has a submenu with **Open Website**, **Mute**, **Include Filter…**, 
 | Include | `Go\|Rust` | only items mentioning Go or Rust |
 | Include | `(?i)release` | only releases, in any capitalisation |
 | Exclude | `^Sponsored` | skips titles starting with "Sponsored" |
+
+**Pause Notifications** silences all feeds for 5, 15, 30 or 45 minutes, an hour, or until you choose **Resume Notifications**. While paused, the menu bar icon is dimmed and the menu shows until when. Like a muted feed, feeds are still checked during a pause, so resuming doesn't send a notification for everything published in the meantime.
 
 **Add Feed…** asks for the feed URL, not the website URL. The app fetches the feed once to validate it and takes the name from the feed's title.
 
@@ -120,7 +124,7 @@ Feeds and settings are stored in
 }
 ```
 
-Optional fields are `name` (set with **Rename…**), `muted`, `include` and `exclude`. The app rewrites this file after every check, so quit it before editing the file by hand.
+Optional fields are `name` (set with **Rename…**), `muted`, `include` and `exclude` per feed, and `paused` / `paused_until` for a pause. The app rewrites this file after every check, so quit it before editing the file by hand.
 
 ## How it works
 

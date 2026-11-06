@@ -62,8 +62,11 @@ type item struct {
 }
 
 type config struct {
-	IntervalMinutes int    `json:"interval_minutes"`
-	Feeds           []feed `json:"feeds"`
+	IntervalMinutes int `json:"interval_minutes"`
+	// Notifications are paused while Paused is set or until PausedUntil.
+	Paused      bool      `json:"paused,omitempty"`
+	PausedUntil time.Time `json:"paused_until,omitzero"`
+	Feeds       []feed    `json:"feeds"`
 }
 
 type store struct {
@@ -107,6 +110,40 @@ func (s *store) setInterval(d time.Duration) error {
 	defer s.mu.Unlock()
 	s.cfg.IntervalMinutes = int(d / time.Minute)
 	return s.save()
+}
+
+// pause pauses notifications for d, or until resume is called if d is 0.
+func (s *store) pause(d time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if d == 0 {
+		s.cfg.Paused = true
+	} else {
+		s.cfg.PausedUntil = time.Now().Add(d)
+	}
+	return s.save()
+}
+
+func (s *store) resume() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cfg.Paused = false
+	s.cfg.PausedUntil = time.Time{}
+	return s.save()
+}
+
+// pauseState reports whether notifications are paused and until when; until is zero for an indefinite pause.
+func (s *store) pauseState() (paused bool, until time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch {
+	case s.cfg.Paused:
+		return true, time.Time{}
+	case time.Now().Before(s.cfg.PausedUntil):
+		return true, s.cfg.PausedUntil
+	default:
+		return false, time.Time{}
+	}
 }
 
 func (s *store) feeds() []feed {
@@ -181,6 +218,7 @@ func (s *store) remove(url string) error {
 }
 
 // check fetches all feeds and returns the items not seen before.
+// While notifications are paused, new items are only marked as seen.
 func (s *store) check(ctx context.Context) []item {
 	var items []item
 	for _, f := range s.feeds() {
@@ -195,7 +233,7 @@ func (s *store) check(ctx context.Context) []item {
 			stored := &s.cfg.Feeds[i]
 			var fresh []*gofeed.Item
 			stored.Seen, fresh = diff(stored.Seen, parsed.Items)
-			if stored.Muted {
+			if stored.Muted || s.cfg.Paused || time.Now().Before(s.cfg.PausedUntil) {
 				fresh = nil
 			}
 			for _, it := range fresh {
