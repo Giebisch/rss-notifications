@@ -50,7 +50,7 @@ rss-notifications install
 
 The second command creates `RSS Notifications.app` in `~/Applications`, signs it ad hoc and starts it. If `rss-notifications` is not found, add `$(go env GOPATH)/bin` to your `PATH`.
 
-To update, run both commands again, then quit the app from the menu bar and open it again.
+To update, quit the app from the menu bar and run both commands again.
 
 From a clone of this repository, `make install` does the same.
 
@@ -88,11 +88,13 @@ Pause Notifications   ▸
 Quit
 ```
 
+**Add Feed…** asks for the feed URL, not the website URL. The app fetches the feed once to validate it and takes the name from the feed's title.
+
 Each feed has a submenu with **Open Website**, **Mute**, **Include Filter…**, **Exclude Filter…**, **Rename…** and **Remove**.
 
 **Mute** pauses notifications for a feed. Muted feeds are still checked, so unmuting doesn't send a notification for everything published in the meantime.
 
-**Include Filter…** and **Exclude Filter…** take a [regular expression](https://pkg.go.dev/regexp/syntax) that is matched against each item's title. With an include filter you are only notified about matching items; with an exclude filter matching items are skipped. If both are set, a title has to match the include filter and must not match the exclude filter. Matching is case-sensitive; start the pattern with `(?i)` to ignore case. A checkmark shows which filters are active, and leaving the field empty turns a filter off.
+**Include Filter…** and **Exclude Filter…** take a [regular expression](https://pkg.go.dev/regexp/syntax) that is matched against each item's title. With an include filter you are only notified about matching items; with an exclude filter matching items are skipped. If both are set, a title has to match the include filter and must not match the exclude filter. Matching is case-sensitive; start the pattern with `(?i)` to ignore case. A checkmark shows which filters are active, and leaving the field empty turns a filter off. Filtered-out items still count as seen, so changing a filter later doesn't send a notification for older items.
 
 | Filter | Pattern | Effect |
 |---|---|---|
@@ -100,11 +102,9 @@ Each feed has a submenu with **Open Website**, **Mute**, **Include Filter…**, 
 | Include | `(?i)release` | only releases, in any capitalisation |
 | Exclude | `^Sponsored` | skips titles starting with "Sponsored" |
 
-**Pause Notifications** silences all feeds for 5, 15, 30 or 45 minutes, an hour, or until you choose **Resume Notifications**. While paused, the menu bar icon is dimmed and the menu shows until when. Like a muted feed, feeds are still checked during a pause, so resuming doesn't send a notification for everything published in the meantime.
-
-**Add Feed…** asks for the feed URL, not the website URL. The app fetches the feed once to validate it and takes the name from the feed's title.
-
 **Rename…** sets a custom name, which is also used as the notification title. Leave the field empty to go back to the feed's own title.
+
+**Pause Notifications** silences all feeds for 5, 15, 30 or 45 minutes, an hour, or until you choose **Resume Notifications**. While paused, the menu bar icon is dimmed and the menu shows until when. Like a muted feed, feeds are still checked during a pause, so resuming doesn't send a notification for everything published in the meantime.
 
 ## Configuration
 
